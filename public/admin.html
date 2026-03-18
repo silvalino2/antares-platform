@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Antares Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=Outfit:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root{
+  --gold:#C9A84C;--gold-l:#E4C97E;--gold-d:#7a6228;
+  --bg:#060504;--s1:#0e0b07;--s2:#161109;--s3:#1e160c;
+  --border:rgba(201,168,76,0.12);--border-hi:rgba(201,168,76,0.32);
+  --text:#F2EDE4;--muted:#8A7D68;--dim:#4a4030;
+  --green:#4CAF7A;--red:#C9504C;--amber:#C98A4C;--blue:#4C8AC9;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;font-weight:300;overflow-x:hidden;}
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;}
+
+/* LOGIN */
+#login{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;}
+.lbox{width:300px;background:var(--s1);border:1px solid var(--border-hi);border-radius:14px;padding:36px;display:flex;flex-direction:column;gap:16px;text-align:center;}
+.lmark{width:46px;height:46px;border-radius:50%;border:1px solid var(--gold-d);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--gold);margin:0 auto;}
+.ltitle{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--gold-l);}
+.lsub{font-size:10px;color:var(--dim);letter-spacing:.18em;text-transform:uppercase;}
+input.li{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 13px;color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:border .2s;text-align:left;width:100%;}
+input.li:focus{border-color:var(--border-hi);}
+button.lb{background:var(--gold);color:var(--bg);border:none;border-radius:8px;padding:12px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;}
+button.lb:hover{background:var(--gold-l);}
+.lerr{font-size:12px;color:var(--red);display:none;}
+
+/* LAYOUT */
+#app{display:none;grid-template-columns:230px 1fr;grid-template-rows:60px 1fr;height:100vh;}
+#app.on{display:grid;}
+
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--border);background:var(--s1);}
+.brand{display:flex;align-items:center;gap:10px;}
+.bmark{width:30px;height:30px;border:1px solid var(--gold-d);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--gold);font-size:12px;}
+.bname{font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--gold-l);}
+.brole{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);}
+.tr{display:flex;align-items:center;gap:14px;}
+.live-pill{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--green);letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border:1px solid rgba(76,175,122,.25);border-radius:16px;}
+.ldot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+#clock{font-size:12px;color:var(--muted);}
+
+.sidebar{background:var(--s1);border-right:1px solid var(--border);padding:18px 0;display:flex;flex-direction:column;}
+.nlbl{font-size:9px;color:var(--dim);letter-spacing:.18em;text-transform:uppercase;padding:0 18px;margin:12px 0 5px;}
+.ni{display:flex;align-items:center;gap:8px;padding:8px 11px;margin:1px 8px;border-radius:7px;font-size:13px;color:var(--muted);cursor:pointer;transition:all .2s;border:1px solid transparent;}
+.ni:hover{background:var(--s2);color:var(--text);}
+.ni.on{background:rgba(201,168,76,.07);border-color:var(--border);color:var(--gold-l);}
+.nbadge{margin-left:auto;background:var(--gold);color:var(--bg);border-radius:9px;font-size:10px;font-weight:600;padding:1px 6px;}
+.nbadge.r{background:var(--red);color:#fff;}
+.nbadge.g{background:var(--green);color:#fff;}
+.sf{margin-top:auto;padding:14px;}
+.ob{width:100%;background:none;border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--muted);font-family:'Outfit',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;}
+.ob:hover{border-color:var(--red);color:var(--red);}
+
+.main{overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:20px;}
+.phdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
+.ptitle{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:300;line-height:1.1;}
+.ptitle em{color:var(--gold);font-style:italic;}
+.psub{font-size:11px;color:var(--dim);margin-top:4px;}
+.btn{padding:9px 16px;border-radius:7px;font-size:11px;font-family:'Outfit',sans-serif;font-weight:500;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:none;transition:all .2s;display:inline-flex;align-items:center;gap:6px;}
+.btn-gold{background:var(--gold);color:var(--bg);}
+.btn-gold:hover{background:var(--gold-l);}
+.btn-outline{background:none;border:1px solid var(--border);color:var(--muted);}
+.btn-outline:hover{border-color:var(--border-hi);color:var(--text);}
+.btn-red{background:rgba(201,80,76,.15);border:1px solid rgba(201,80,76,.3);color:var(--red);}
+.btn-green{background:rgba(76,175,122,.15);border:1px solid rgba(76,175,122,.3);color:var(--green);}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;}
+.stat{background:var(--s1);border:1px solid var(--border);border-radius:11px;padding:16px 18px;position:relative;overflow:hidden;transition:border-color .25s;}
+.stat:hover{border-color:var(--border-hi);}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:0;transition:.3s;}
+.stat:hover::before{opacity:1;}
+.slbl{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:8px;}
+.sval{font-family:'Cormorant Garamond',serif;font-size:34px;font-weight:300;line-height:1;}
+.sval.gold{color:var(--gold-l);}
+.sval.g{color:var(--green);}
+.sinfo{font-size:10px;color:var(--dim);margin-top:4px;}
+.sico{position:absolute;top:14px;right:14px;font-size:18px;opacity:.1;}
+
+/* PANEL */
+.panel{background:var(--s1);border:1px solid var(--border);border-radius:11px;overflow:hidden;}
+.ph{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.pt{font-family:'Cormorant Garamond',serif;font-size:16px;}
+.pl{font-size:11px;color:var(--gold-d);cursor:pointer;transition:color .2s;}
+.pl:hover{color:var(--gold);}
+
+/* CLIENT CARDS */
+.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px;}
+.cc{background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .25s;}
+.cc:hover{border-color:var(--border-hi);}
+.cc-top{padding:16px;display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--border);}
+.cc-logo{width:44px;height:44px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--s2);}
+.cc-logo-placeholder{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;font-family:'Cormorant Garamond',serif;font-weight:600;}
+.cc-info{flex:1;min-width:0;}
+.cc-name{font-size:14px;font-weight:400;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cc-type{font-size:10px;color:var(--muted);margin-top:2px;letter-spacing:.05em;text-transform:capitalize;}
+.cc-phone{font-size:11px;color:var(--dim);margin-top:3px;}
+.cc-body{padding:12px 16px;display:flex;flex-direction:column;gap:10px;}
+.cc-badges{display:flex;gap:5px;flex-wrap:wrap;}
+.badge{font-size:9px;padding:3px 8px;border-radius:8px;letter-spacing:.07em;text-transform:uppercase;font-weight:500;}
+.badge.active{background:rgba(76,175,122,.12);border:1px solid rgba(76,175,122,.25);color:var(--green);}
+.badge.pending{background:rgba(201,138,76,.1);border:1px solid rgba(201,138,76,.2);color:var(--amber);}
+.badge.suspended{background:rgba(201,80,76,.1);border:1px solid rgba(201,80,76,.2);color:var(--red);}
+.badge.live{background:rgba(76,175,122,.1);border:1px solid rgba(76,175,122,.2);color:var(--green);}
+.badge.nowehook{background:rgba(201,80,76,.08);border:1px solid rgba(201,80,76,.15);color:var(--red);}
+.cc-actions{display:flex;gap:6px;}
+.cc-actions .btn{flex:1;font-size:10px;padding:7px 8px;justify-content:center;}
+
+/* SWITCH TOGGLE */
+.switch-wrap{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--s2);border-radius:8px;}
+.switch-lbl{flex:1;font-size:12px;color:var(--muted);}
+.switch{position:relative;width:44px;height:24px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.sw-slider{position:absolute;inset:0;background:var(--s3);border:1px solid var(--border);border-radius:12px;cursor:pointer;transition:.3s;}
+.sw-slider::before{content:'';position:absolute;width:18px;height:18px;left:2px;top:2px;background:var(--dim);border-radius:50%;transition:.3s;}
+.switch input:checked + .sw-slider{background:rgba(76,175,122,.2);border-color:rgba(76,175,122,.4);}
+.switch input:checked + .sw-slider::before{transform:translateX(20px);background:var(--green);}
+
+/* ADD FORM */
+.form-body{padding:20px 22px;display:flex;flex-direction:column;gap:14px;}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.field input,.field textarea,.field select{background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;outline:none;transition:border .2s;width:100%;}
+.field input:focus,.field textarea:focus{border-color:var(--border-hi);}
+.field textarea{resize:vertical;min-height:75px;line-height:1.55;}
+.field .hint{font-size:11px;color:var(--dim);line-height:1.5;}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.slbl{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-d);padding-top:4px;border-top:1px solid var(--border);margin-top:4px;}
+
+/* BRAND PREVIEW CARD */
+.brand-preview{display:none;border-radius:10px;overflow:hidden;border:1px solid var(--border-hi);margin-top:2px;}
+.bp-header{padding:16px 18px;display:flex;align-items:center;gap:12px;}
+.bp-logo{width:42px;height:42px;border-radius:9px;object-fit:cover;}
+.bp-name{font-size:16px;font-weight:400;}
+.bp-type{font-size:11px;margin-top:2px;opacity:.7;text-transform:capitalize;}
+.bp-body{padding:12px 18px;font-size:12px;opacity:.75;border-top:1px solid rgba(255,255,255,.08);}
+
+/* MENU BUILDER */
+.mb{background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:14px;}
+.mrow{display:grid;grid-template-columns:1fr 90px 90px 80px auto;gap:7px;align-items:center;margin-bottom:7px;}
+.mrow input,.mrow select{background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--text);font-family:'Outfit',sans-serif;font-size:12px;outline:none;}
+.del{background:none;border:1px solid rgba(201,80,76,.2);border-radius:6px;color:var(--red);padding:6px 8px;cursor:pointer;font-size:11px;}
+.add-row{background:none;border:1px dashed var(--border-hi);border-radius:7px;padding:7px;color:var(--gold-d);cursor:pointer;font-size:12px;width:100%;transition:all .2s;margin-top:2px;}
+.add-row:hover{border-color:var(--gold);color:var(--gold);}
+
+.msg{padding:11px 15px;border-radius:8px;font-size:12px;display:none;align-items:center;gap:8px;margin-top:2px;}
+.msg.err{background:rgba(201,80,76,.1);border:1px solid rgba(201,80,76,.2);color:var(--red);}
+.msg.ok{background:rgba(76,175,122,.1);border:1px solid rgba(76,175,122,.2);color:var(--green);}
+.msg.show{display:flex;}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--s2);border:1px solid var(--border-hi);border-radius:9px;padding:12px 16px;font-size:13px;z-index:9990;transform:translateY(60px);opacity:0;transition:all .3s;pointer-events:none;display:flex;align-items:center;gap:8px;max-width:300px;}
+.toast.show{transform:translateY(0);opacity:1;}
+
+.fi{animation:fu .35s ease forwards;opacity:0;}
+@keyframes fu{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* Fetching spinner */
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(201,168,76,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="lbox">
+    <div class="lmark" style="background:none;border:none;"><svg width="38" height="44" viewBox="0 0 82 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="ag"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="ags"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="al" x1="41" y1="4" x2="41" y2="92" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#0055AA"/></linearGradient>
+    <linearGradient id="ac" x1="14" y1="62" x2="68" y2="62" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#0088CC"/><stop offset="50%" stop-color="#00C8FF"/><stop offset="100%" stop-color="#0088CC"/></linearGradient>
+  </defs>
+  <line x1="41" y1="6" x2="6" y2="90" stroke="url(#al)" stroke-width="3.5" stroke-linecap="round" filter="url(#ag)"/>
+  <line x1="41" y1="6" x2="76" y2="90" stroke="url(#al)" stroke-width="3.5" stroke-linecap="round" filter="url(#ag)"/>
+  <line x1="18" y1="62" x2="64" y2="62" stroke="url(#ac)" stroke-width="2.5" stroke-linecap="round" filter="url(#ag)"/>
+  <line x1="64" y1="62" x2="76" y2="62" stroke="rgba(0,180,255,0.3)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="18" y1="62" x2="6" y2="62" stroke="rgba(0,180,255,0.3)" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="41" cy="6" r="5" fill="#050607" stroke="#00D4FF" stroke-width="1.5" filter="url(#ag)"/>
+  <circle cx="41" cy="6" r="2.2" fill="#00D4FF" filter="url(#ags)"/>
+  <circle cx="41" cy="6" r="10" fill="none" stroke="rgba(0,212,255,0.12)" stroke-width="1"/>
+  <circle cx="18" cy="62" r="3.8" fill="#050607" stroke="#00AADD" stroke-width="1.5" filter="url(#ag)"/>
+  <circle cx="18" cy="62" r="1.6" fill="#00AADD"/>
+  <circle cx="64" cy="62" r="3.8" fill="#050607" stroke="#00AADD" stroke-width="1.5" filter="url(#ag)"/>
+  <circle cx="64" cy="62" r="1.6" fill="#00AADD"/>
+  <circle cx="6" cy="90" r="3.8" fill="#050607" stroke="#0077BB" stroke-width="1.5" filter="url(#ag)"/>
+  <circle cx="6" cy="90" r="1.6" fill="#0077BB"/>
+  <circle cx="76" cy="90" r="3.8" fill="#050607" stroke="#0077BB" stroke-width="1.5" filter="url(#ag)"/>
+  <circle cx="76" cy="90" r="1.6" fill="#0077BB"/>
+</svg></div>
+    <div><div class="ltitle">Antares Admin</div><div class="lsub">Platform Control</div></div>
+    <input class="li" type="password" id="apw" placeholder="Admin password" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <button class="lb" onclick="doLogin()">Enter</button>
+    <div class="lerr" id="aerr">Wrong password.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="bmark-svg" style="display:flex;align-items:center;flex-shrink:0;"><svg width="28" height="33" viewBox="0 0 82 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="ag"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="ags"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="al" x1="41" y1="4" x2="41" y2="92" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#00D4FF"/><stop offset="100%" stop-color="#0055AA"/></linearGradient>
+    <linearGradient id="ac" x1="14" y1="62" x2="68" y2="62" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#0088CC"/><stop offset="50%" stop-color="#00C8FF"/><stop offset="100%" stop-color="#0088CC"/></linearGradient>
+  </defs>
+  <line x1="41" y1="6" x2="6" y2="90" stroke="url(#al)" stroke-width="3.5" stroke-linecap="round" filter="url(#ag)"/>
+  <line x1="41" y1="6" x2="76" y2="90" stroke="url(#al)" stroke-width="3.5" stroke-linecap="round" filter="url(#ag)"/>
+  <line x1="18" y1="62" x2="64" y2="62" stroke="url(#ac)" stroke-width="2.5" stroke-linecap="round" filter="url(#ag)"/>
+  <line x1="64" y1="62" x2="76" y2="62" stroke="rgba(0,180,255,0.3)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="18" y1="62" x2="6" y2="62" stroke="rgba(0,180,255,0.3)" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="41" cy="6" r="5" fill="#050607" stroke="#00D4FF" stroke-width="1.5" filter="url(#ag)"/>
+  <circle cx="41" cy="6" r="2.2" fill="#00D4FF" filter="url(#ags)"/>
+  <circle cx="41" cy="6" r="10" fill="none" stroke="rgba(0,212,255,0.12)" stroke-width="1"/>
+  <circle cx="18" cy="62" r="3.8" fill="#050607" stroke="#00AADD" stroke-width="1.5" filter="url(#ag)"/>
+  <circle cx="18" cy="62" r="1.6" fill="#00AADD"/>
+  <circle cx="64" cy="62" r="3.8" fill="#050607" stroke="#00AADD" stroke-width="1.5" filter="url(#ag)"/>
+  <circle cx="64" cy="62" r="1.6" fill="#00AADD"/>
+  <circle cx="6" cy="90" r="3.8" fill="#050607" stroke="#0077BB" stroke-width="1.5" filter="url(#ag)"/>
+  <circle cx="6" cy="90" r="1.6" fill="#0077BB"/>
+  <circle cx="76" cy="90" r="3.8" fill="#050607" stroke="#0077BB" stroke-width="1.5" filter="url(#ag)"/>
+  <circle cx="76" cy="90" r="1.6" fill="#0077BB"/>
+</svg></div>
+      <div style="display:flex;align-items:baseline;gap:0;line-height:1;">
+        <span style="font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:300;letter-spacing:0.18em;color:#D8EEF8;">NTARES</span>
+        <span style="font-size:9px;color:rgba(0,180,255,0.45);letter-spacing:.18em;text-transform:uppercase;margin-left:10px;align-self:center;">Admin</span>
+      </div>
+    </div>
+    <div class="tr">
+      <div class="live-pill"><div class="ldot"></div>Live</div>
+      <div id="clock">—</div>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <div class="nlbl">Platform</div>
+    <div class="ni on" onclick="view('overview')">⊞ Overview <span class="nbadge" id="nb-t">—</span></div>
+    <div class="ni" onclick="view('clients')">🏛 Clients <span class="nbadge g" id="nb-a">—</span></div>
+    <div class="ni" onclick="view('pending')">⏳ Pending <span class="nbadge r" id="nb-p">—</span></div>
+    <div class="ni" onclick="view('orders')">📋 All Orders</div>
+    <div class="nlbl">Actions</div>
+    <div class="ni" onclick="view('add')">＋ Add Client</div>
+    <div class="sf">
+      <button class="ob" onclick="doLogout()">Sign Out</button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div id="v-overview">
+      <div class="phdr fi">
+        <div><div class="ptitle">Platform <em>Overview</em></div><div class="psub" id="pdate">—</div></div>
+        <button class="btn btn-gold" onclick="view('add')">＋ Add Client</button>
+      </div>
+      <div class="stats fi">
+        <div class="stat"><div class="slbl">Total Clients</div><div class="sval gold" id="s-t">—</div><div class="sinfo" id="s-a">—</div><div class="sico">🏛</div></div>
+        <div class="stat"><div class="slbl">Pending Activation</div><div class="sval" id="s-p">—</div><div class="sinfo">Awaiting payment</div><div class="sico">⏳</div></div>
+        <div class="stat"><div class="slbl">Orders Today</div><div class="sval" id="s-o">—</div><div class="sinfo">Across all clients</div><div class="sico">📋</div></div>
+        <div class="stat"><div class="slbl">Platform Revenue</div><div class="sval g" id="s-r">—</div><div class="sinfo">Verified payments</div><div class="sico">₦</div></div>
+      </div>
+      <div class="panel fi">
+        <div class="ph"><div class="pt">Recent Clients</div><span class="pl" onclick="view('clients')">View all →</span></div>
+        <div id="ov-list"></div>
+      </div>
+    </div>
+
+    <!-- ALL CLIENTS -->
+    <div id="v-clients" style="display:none">
+      <div class="phdr fi">
+        <div><div class="ptitle">All <em>Clients</em></div><div class="psub">Active agents on the platform</div></div>
+        <button class="btn btn-gold" onclick="view('add')">＋ Add Client</button>
+      </div>
+      <div class="cg fi" id="cg-active"></div>
+    </div>
+
+    <!-- PENDING -->
+    <div id="v-pending" style="display:none">
+      <div class="phdr fi">
+        <div><div class="ptitle"><em>Pending</em> Activation</div><div class="psub">Clients who have not yet paid — flip the switch once they do</div></div>
+      </div>
+      <div class="cg fi" id="cg-pending"></div>
+    </div>
+
+    <!-- ORDERS -->
+    <div id="v-orders" style="display:none">
+      <div class="phdr fi">
+        <div><div class="ptitle">All <em>Orders</em></div><div class="psub">Platform-wide</div></div>
+      </div>
+      <div class="panel fi">
+        <div class="ph"><div class="pt">Orders</div><span class="pl" onclick="loadOrders()">↻ Refresh</span></div>
+        <div id="orders-body"></div>
+      </div>
+    </div>
+
+    <!-- ADD CLIENT -->
+    <div id="v-add" style="display:none">
+      <div class="phdr fi">
+        <div><div class="ptitle">Add <em>Client</em></div><div class="psub">Type the business name — everything else auto-fills</div></div>
+      </div>
+
+      <div class="panel fi">
+        <div class="ph"><div class="pt">New Client Setup</div></div>
+        <div class="form-body">
+
+          <!-- Step 1: Business name — triggers auto-fetch -->
+          <div class="slbl">1 · Business Identity</div>
+          <div class="fr">
+            <div class="field">
+              <label>Business Name *</label>
+              <input id="f-name" placeholder="e.g. JRoyal Grills n Chop" oninput="onNameInput()"/>
+            </div>
+            <div class="field">
+              <label>Owner Name</label>
+              <input id="f-owner" placeholder="e.g. Mr. Emmanuel"/>
+            </div>
+          </div>
+
+          <!-- Brand Preview (auto-populated) -->
+          <div class="brand-preview" id="brand-preview">
+            <div class="bp-header" id="bp-header">
+              <img class="bp-logo" id="bp-logo" src="" alt=""/>
+              <div>
+                <div class="bp-name" id="bp-name">—</div>
+                <div class="bp-type" id="bp-type">—</div>
+              </div>
+            </div>
+            <div class="bp-body" id="bp-body">AI personality will be auto-generated for this business type.</div>
+          </div>
+          <div id="fetch-status" style="font-size:12px;color:var(--muted);display:none;align-items:center;gap:8px;"></div>
+
+          <!-- Step 2: Phone Numbers -->
+          <div class="slbl">2 · Phone Numbers</div>
+
+          <div class="fr">
+            <div class="field">
+              <label>Client's MTN/Business Number (what customers dial)</label>
+              <input id="f-public-phone" placeholder="08012345678" oninput="updateForwardingCard()"/>
+              <div class="hint">Their existing MTN, Airtel, or Glo number. Customers keep calling this.</div>
+            </div>
+            <div class="field">
+              <label>Twilio Number * (hidden — receives the forwarded calls)</label>
+              <input id="f-phone" placeholder="+2348099999999" oninput="updateForwardingCard()"/>
+              <div class="hint">Buy this on Twilio (~$1/month). Customers never see or call this number.</div>
+            </div>
+          </div>
+
+          <!-- Forwarding instruction card — auto-fills -->
+          <div id="fwd-card" style="display:none;background:rgba(201,168,76,0.06);border:1px solid var(--border-hi);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-d);margin-bottom:10px;">📋 Forwarding Setup — Send This to Client</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.7;">
+              Tell the client to dial this on their MTN line:<br/>
+              <span style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold-l);letter-spacing:.05em;" id="fwd-code">*21*+xxxx#</span>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.6;">
+              ✓ All calls to their number forward to Antares automatically<br/>
+              ✓ To pause forwarding: <span style="color:var(--text);">##21#</span><br/>
+              ✓ Works on MTN, Airtel, Glo, 9mobile
+            </div>
+            <button onclick="copyFwdCode()" style="margin-top:10px;background:none;border:1px solid var(--border-hi);border-radius:6px;padding:6px 12px;color:var(--gold-d);font-family:'Outfit',sans-serif;font-size:11px;cursor:pointer;letter-spacing:.08em;">Copy Instructions</button>
+          </div>
+
+          <div class="fr">
+            <div class="field">
+              <label>WhatsApp Number (optional)</label>
+              <input id="f-wa" placeholder="whatsapp:+2348099999999"/>
+              <div class="hint">Twilio WhatsApp-enabled number. Can be the same Twilio number above.</div>
+            </div>
+            <div class="field" style="align-self:flex-start;margin-top:0;">
+              <label>SMS (optional)</label>
+              <div class="hint" style="margin-top:8px;line-height:1.7;">SMS replies go out from the Twilio number automatically. No extra setup needed.</div>
+            </div>
+          </div>
+          <div class="fr">
+            <div class="field">
+              <label>Twilio Account SID *</label>
+              <input id="f-sid" placeholder="ACxxxxxxxxxxxxxxxx"/>
+            </div>
+            <div class="field">
+              <label>Twilio Auth Token *</label>
+              <input id="f-tok" type="password" placeholder="Auth token"/>
+            </div>
+          </div>
+
+          <!-- Step 3: Dashboard password -->
+          <div class="slbl">3 · Dashboard Access</div>
+          <div class="fr">
+            <div class="field">
+              <label>Dashboard Password * (client uses this to login)</label>
+              <input id="f-pw" placeholder="Choose a password for this client"/>
+            </div>
+            <div class="field">
+              <label>Email (optional)</label>
+              <input id="f-email" type="email" placeholder="owner@business.com"/>
+            </div>
+          </div>
+
+          <!-- Step 4: Payments (optional) -->
+          <div class="slbl">4 · Payment Setup (optional)</div>
+          <div class="fr">
+            <div class="field">
+              <label>Bank Name</label><input id="f-bank" placeholder="GTBank"/>
+            </div>
+            <div class="field">
+              <label>Account Number</label><input id="f-acct" placeholder="0123456789"/>
+            </div>
+          </div>
+          <div class="fr">
+            <div class="field">
+              <label>Account Name</label><input id="f-acctname" placeholder="Business trading name"/>
+            </div>
+            <div class="field">
+              <label>Paystack Secret Key</label><input id="f-ps" type="password" placeholder="sk_live_xxxxxxxx"/>
+            </div>
+          </div>
+
+          <!-- Step 5: Services/Menu -->
+          <div class="slbl">5 · Menu / Services (optional — AI uses these for orders)</div>
+          <div class="mb">
+            <div style="display:grid;grid-template-columns:1fr 90px 90px 80px auto;gap:7px;margin-bottom:8px;">
+              <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Name</div>
+              <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Category</div>
+              <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Price ₦</div>
+              <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Description</div>
+              <div></div>
+            </div>
+            <div id="mrows"></div>
+            <button class="add-row" onclick="addRow()">＋ Add item / service</button>
+          </div>
+
+          <!-- Step 6: AI Personality (auto-filled, editable) -->
+          <div class="slbl">6 · AI Personality (auto-generated — edit if needed)</div>
+          <div class="field">
+            <textarea id="f-persona" rows="4" placeholder="AI personality will auto-fill once you enter the business name..."></textarea>
+          </div>
+
+          <div class="msg err" id="add-err">⚠ <span id="add-err-t">Error</span></div>
+          <div class="msg ok"  id="add-ok">✅ Client added! They are in Pending until you activate them after payment.</div>
+
+          <div style="display:flex;gap:10px;padding-top:4px;">
+            <button class="btn btn-gold" onclick="submitClient()" id="add-btn" style="flex:1;padding:13px;justify-content:center;">✦ &nbsp;Add Client</button>
+            <button class="btn btn-outline" onclick="view('clients')">Cancel</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+
+<!-- LIVE CALL BANNER (admin-wide) -->
+<div class="call-banner" id="global-call-banner">
+  <div class="call-pulse"></div>
+  <span class="call-banner-text">📞 Live call in progress — <span id="call-banner-biz">—</span></span>
+  <span class="call-banner-sub" id="call-banner-from">—</span>
+</div>
+
+<!-- CLIENT DETAIL MODAL -->
+<div class="modal-overlay hidden" id="detail-modal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title" id="dm-title">Client Details</div>
+      <button class="modal-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div id="dm-body"></div>
+  </div>
+</div>
+
+<!-- EDIT CLIENT MODAL -->
+<div class="modal-overlay hidden" id="edit-modal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Edit Client</div>
+      <button class="modal-close" onclick="closeEdit()">✕</button>
+    </div>
+    <div class="modal-section">
+      <h4>Business Info</h4>
+      <div class="fr">
+        <div class="field"><label>Business Name *</label><input id="e-name" class="li"/></div>
+        <div class="field"><label>Owner Name</label><input id="e-owner" class="li"/></div>
+      </div>
+      <div class="fr">
+        <div class="field"><label>Public Phone (MTN)</label><input id="e-pubphone" class="li"/></div>
+        <div class="field"><label>WhatsApp Number</label><input id="e-wa" class="li"/></div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <h4>Twilio Credentials</h4>
+      <div class="fr">
+        <div class="field"><label>Twilio Phone</label><input id="e-phone" class="li"/></div>
+        <div class="field"><label>Account SID</label><input id="e-sid" class="li"/></div>
+      </div>
+      <div class="field"><label>Auth Token</label><input id="e-tok" class="li" type="password"/></div>
+    </div>
+    <div class="modal-section">
+      <h4>Payment Details</h4>
+      <div class="fr">
+        <div class="field"><label>Bank Name</label><input id="e-bank" class="li"/></div>
+        <div class="field"><label>Account Number</label><input id="e-acct" class="li"/></div>
+      </div>
+      <div class="field"><label>Account Name</label><input id="e-acctname" class="li"/></div>
+    </div>
+    <div class="modal-section">
+      <h4>Menu / Services</h4>
+      <div style="display:grid;grid-template-columns:1fr 90px 90px 80px auto;gap:7px;margin-bottom:8px;">
+        <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Name</div>
+        <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Category</div>
+        <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Price ₦</div>
+        <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Description</div>
+        <div></div>
+      </div>
+      <div id="e-mrows"></div>
+      <button class="add-row" onclick="addEditRow()">＋ Add item</button>
+    </div>
+    <div class="modal-section">
+      <h4>AI Personality</h4>
+      <div class="field"><textarea id="e-persona" rows="4" class="li" style="resize:vertical;"></textarea></div>
+    </div>
+    <div class="modal-section">
+      <h4>Extra Info</h4>
+      <div class="field"><textarea id="e-extra" rows="3" class="li" style="resize:vertical;"></textarea></div>
+    </div>
+    <div style="display:flex;gap:10px;padding-top:8px;">
+      <button class="btn btn-gold" onclick="saveEdit()" style="flex:1;padding:13px;justify-content:center;">💾 &nbsp;Save Changes</button>
+      <button class="btn btn-outline" onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><span id="t-i">✦</span><span id="t-m">—</span></div>
+
+<script>
+let clients = [];
+let fetchTimer = null;
+let currentBrand = null;
+
+// ── Auth ──────────────────────────────────────
+async function doLogin() {
+  try {
+    const pw = document.getElementById('apw');
+    if (!pw) return;
+    const res = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw.value})});
+    if (res.ok) {
+      const login = document.getElementById('login');
+      const app   = document.getElementById('app');
+      if (login) login.style.display='none';
+      if (app)   app.classList.add('on');
+      setTimeout(() => init(), 100);
+    } else {
+      const err = document.getElementById('aerr');
+      if (err) err.style.display='block';
+    }
+  } catch(e) { console.error('Login error:', e); }
+}
+async function doLogout() { await fetch('/api/admin/logout',{method:'POST'}); location.reload(); }
+
+// ── Init ──────────────────────────────────────
+function init() {
+  try {
+    startClock();
+    const pd = document.getElementById('pdate');
+    if (pd) pd.textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    loadStats(); loadClients();
+    // Socket
+    const socket = io();
+    socket.on('client_activated', () => { loadClients(); loadStats(); toast('✅','Client activated and live!'); });
+    socket.on('call_started', (data) => {
+      const b = document.getElementById('global-call-banner');
+      const biz = document.getElementById('call-banner-biz');
+      const from = document.getElementById('call-banner-from');
+      if (b) b.classList.add('show');
+      if (biz) biz.textContent = data.businessName;
+      if (from) from.textContent = 'Caller: ' + data.from;
+      toast('📞', 'Live call — ' + data.businessName);
+    });
+    socket.on('call_ended', (data) => {
+      const b = document.getElementById('global-call-banner');
+      if (b) b.classList.remove('show');
+      toast('✓', 'Call ended — ' + data.businessName + ' (' + (data.duration||0) + 's)');
+    });
+  } catch(e) { console.error('Init error:', e); }
+}
+
+function startClock() {
+  const t = () => document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  t(); setInterval(t,1000);
+}
+
+async function loadStats() {
+  try {
+    const r = await fetch('/api/admin/stats');
+    if (!r.ok) return;
+    const s = await r.json();
+    const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+    set('s-t', s.total);
+    set('s-a', s.active+' active');
+    set('s-p', s.pending);
+    set('s-o', s.todayOrders);
+    set('s-r', '₦'+(s.revenue/1000).toFixed(0)+'k');
+    set('nb-t', s.total);
+    set('nb-a', s.active);
+    set('nb-p', s.pending);
+  } catch(e) { console.error('loadStats error:', e); }
+}
+
+async function loadClients() {
+  try {
+    const r = await fetch('/api/admin/clients');
+    if (!r.ok) return;
+    clients = await r.json();
+    renderClients();
+    renderOverviewList();
+  } catch(e) { console.error('loadClients error:', e); }
+}
+
+// ── Render client cards ───────────────────────
+function clientCardHTML(c) {
+  const initials = c.businessName.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const primary  = c.colors?.primary || '#C9A84C';
+  const accent   = c.colors?.secondary || '#E4C97E';
+  const logoHTML = c.logoUrl
+    ? `<img class="cc-logo" src="${c.logoUrl}" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="cc-logo-placeholder" style="display:none;background:${primary}20;color:${accent};border:1px solid ${primary}40;">${initials}</div>`
+    : `<div class="cc-logo-placeholder" style="background:${primary}20;color:${accent};border:1px solid ${primary}40;">${initials}</div>`;
+
+  const statusBadge = c.status==='active'?'active':c.status==='pending'?'pending':'suspended';
+  const wh = c.webhooksOk ? `<span class="badge live">✓ Live</span>` : `<span class="badge nowehook">⚠ Webhooks</span>`;
+
+  const actions = c.status==='pending'
+    ? `<button class="btn btn-green" onclick="activateClient('${c.id}',this)">▶ Activate</button><button class="btn btn-outline" onclick="copyLink('${c.id}')">📋 Link</button><button class="btn btn-edit" onclick="openEdit('${c.id}')">✏ Edit</button>`
+    : c.active
+      ? `<button class="btn btn-red" onclick="suspendClient('${c.id}')">Suspend</button><button class="btn btn-outline" onclick="copyLink('${c.id}')">📋 Link</button><button class="btn btn-edit" onclick="openEdit('${c.id}')">✏ Edit</button>`
+      : `<button class="btn btn-green" onclick="activateClient('${c.id}',this)">▶ Re-activate</button><button class="btn btn-edit" onclick="openEdit('${c.id}')">✏ Edit</button>`;
+
+  return `
+  <div class="cc" id="card-${c.id}">
+    <div class="cc-top" style="background:${primary}10;cursor:pointer;" onclick="openDetail('${c.id}')">
+      ${logoHTML}
+      <div class="cc-info">
+        <div class="cc-name">${c.businessName}</div>
+        <div class="cc-type">${c.businessType || 'business'}</div>
+        <div class="cc-phone">${c.publicPhone || c.phone}</div>
+      </div>
+      <div style="margin-left:auto;font-size:10px;color:var(--dim);padding-left:8px;">View ›</div>
+    </div>
+    <div class="cc-body">
+      <div class="cc-badges">
+        <span class="badge ${statusBadge}">${c.status}</span>
+        ${wh}
+        ${c.whatsappNumber ? '<span class="badge live">💬 WA</span>' : ''}
+      </div>
+      <div class="cc-actions">${actions}</div>
+    </div>
+  </div>`;
+}
+
+function renderClients() {
+  const active  = clients.filter(c=>c.active);
+  const pending = clients.filter(c=>!c.active);
+  document.getElementById('cg-active').innerHTML  = active.map(clientCardHTML).join('') || '<div style="padding:24px;color:var(--dim);font-size:13px;">No active clients yet.</div>';
+  document.getElementById('cg-pending').innerHTML = pending.map(clientCardHTML).join('') || '<div style="padding:24px;color:var(--dim);font-size:13px;">No pending clients.</div>';
+}
+
+function renderOverviewList() {
+  document.getElementById('ov-list').innerHTML = clients.slice(0,6).map(c=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid rgba(201,168,76,.04);">
+      ${c.logoUrl ? `<img src="${c.logoUrl}" style="width:28px;height:28px;border-radius:6px;object-fit:cover;" onerror="this.style.display='none'"/>` : `<div style="width:28px;height:28px;border-radius:6px;background:${c.colors?.primary||'#333'}20;display:flex;align-items:center;justify-content:center;font-size:11px;color:${c.colors?.secondary||'#C9A84C'};font-family:'Cormorant Garamond',serif;font-weight:600;">${c.businessName.split(/\s+/).map(w=>w[0]).join('').slice(0,2)}</div>`}
+      <div style="flex:1;"><div style="font-size:13px;color:var(--text);">${c.businessName}</div><div style="font-size:10px;color:var(--dim);margin-top:2px;">${c.phone} · ${c.businessType||'business'}</div></div>
+      <span class="badge ${c.status==='active'?'active':c.status==='pending'?'pending':'suspended'}">${c.status}</span>
+    </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:13px;">No clients yet.</div>';
+}
+
+// ── Auto-fetch brand on name input ────────────
+function onNameInput() {
+  clearTimeout(fetchTimer);
+  const name = document.getElementById('f-name').value.trim();
+  if (name.length < 3) return hideBrandPreview();
+  fetchTimer = setTimeout(() => fetchBrand(name), 800);
+}
+
+async function fetchBrand(name) {
+  const status = document.getElementById('fetch-status');
+  status.style.display = 'flex';
+  status.innerHTML = `<span class="spin"></span> Finding brand for "${name}"...`;
+
+  try {
+    const res  = await fetch('/api/admin/fetch-brand',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({businessName:name})});
+    const data = await res.json();
+    currentBrand = data;
+
+    // Update brand preview
+    const preview = document.getElementById('brand-preview');
+    const colors  = data.colors;
+    preview.style.background = colors.surface || '#1A1510';
+    preview.style.display    = 'block';
+    document.getElementById('bp-header').style.background = colors.primary + '20';
+    document.getElementById('bp-logo').src  = data.logoUrl;
+    document.getElementById('bp-name').textContent = name;
+    document.getElementById('bp-name').style.color = colors.text || '#F2EDE4';
+    document.getElementById('bp-type').textContent = data.businessType;
+    document.getElementById('bp-type').style.color = colors.secondary || '#C9A84C';
+    document.getElementById('bp-body').textContent = `Detected as: ${data.businessType} · AI personality auto-generated`;
+    document.getElementById('bp-body').style.color = colors.muted || '#8A7D68';
+
+    // Fill personality
+    document.getElementById('f-persona').value = data.personality || '';
+
+    status.innerHTML = `✓ Brand detected — <span style="color:var(--gold)">${data.businessType}</span>`;
+    setTimeout(() => status.style.display='none', 2500);
+
+  } catch(e) {
+    status.innerHTML = '⚠ Could not auto-detect brand. You can continue manually.';
+    setTimeout(() => status.style.display='none', 3000);
+  }
+}
+
+function hideBrandPreview() {
+  document.getElementById('brand-preview').style.display = 'none';
+  document.getElementById('fetch-status').style.display  = 'none';
+}
+
+// ── Menu rows ─────────────────────────────────
+let rowN = 0;
+function addRow(name='',cat='General',price='',desc='') {
+  const d = document.createElement('div');
+  d.className = 'mrow'; d.id = `row-${rowN}`;
+  d.innerHTML = `
+    <input class="rn" placeholder="Item/service name" value="${name}"/>
+    <input class="rc" placeholder="Category" value="${cat}"/>
+    <input class="rp" type="number" placeholder="0" value="${price}"/>
+    <input class="rd" placeholder="Short description" value="${desc}"/>
+    <button class="del" onclick="this.parentElement.remove()">✕</button>`;
+  document.getElementById('mrows').appendChild(d);
+  rowN++;
+}
+
+function getMenu() {
+  return Array.from(document.querySelectorAll('.mrow')).map(r=>({
+    name:r.querySelector('.rn').value.trim(),
+    category:r.querySelector('.rc').value.trim()||'General',
+    price:parseFloat(r.querySelector('.rp').value)||0,
+    description:r.querySelector('.rd').value.trim(),
+  })).filter(i=>i.name);
+}
+
+// ── Submit client ─────────────────────────────
+async function submitClient() {
+  const btn  = document.getElementById('add-btn');
+  const name = document.getElementById('f-name').value.trim();
+  const phone= document.getElementById('f-phone').value.trim();
+  const sid  = document.getElementById('f-sid').value.trim();
+  const tok  = document.getElementById('f-tok').value.trim();
+  const pw   = document.getElementById('f-pw').value.trim();
+  if (!name||!phone||!sid||!tok||!pw) { showErr('Fill in all required fields (marked *)'); return; }
+
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>&nbsp;Adding client...';
+
+  const payload = {
+    businessName:    name,
+    businessType:    currentBrand?.businessType || 'business',
+    logoUrl:         currentBrand?.logoUrl || '',
+    colors:          currentBrand?.colors || {},
+    personality:     document.getElementById('f-persona').value.trim(),
+    ownerName:       document.getElementById('f-owner').value.trim(),
+    email:           document.getElementById('f-email').value.trim(),
+    publicPhone:     document.getElementById('f-public-phone').value.trim(),
+    phone, twilioSid:sid, twilioToken:tok,
+    whatsappNumber:  document.getElementById('f-wa').value.trim(),
+    dashboardPassword: pw,
+    bankName:        document.getElementById('f-bank').value.trim(),
+    bankAccount:     document.getElementById('f-acct').value.trim(),
+    bankAccountName: document.getElementById('f-acctname').value.trim(),
+    paystackKey:     document.getElementById('f-ps').value.trim(),
+    menuOrServices:  getMenu(),
+  };
+
+  const res  = await fetch('/api/admin/clients',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data = await res.json();
+
+  btn.disabled=false; btn.innerHTML='✦ &nbsp;Add Client';
+
+  if (data.success) {
+    document.getElementById('add-ok').classList.add('show');
+    document.getElementById('add-err').classList.remove('show');
+    clients.unshift(data.client);
+    await loadStats();
+    toast('✦',`${name} added! Activate after payment.`);
+    setTimeout(()=>{ view('pending'); document.getElementById('add-ok').classList.remove('show'); resetForm(); },2500);
+  } else { showErr(data.error||'Something went wrong.'); }
+}
+
+function showErr(m) { document.getElementById('add-err-t').textContent=m; document.getElementById('add-err').classList.add('show'); }
+function resetForm() {
+  ['f-name','f-owner','f-email','f-public-phone','f-phone','f-sid','f-tok','f-wa','f-pw','f-bank','f-acct','f-acctname','f-ps','f-persona'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('mrows').innerHTML='';
+  hideBrandPreview(); currentBrand=null; rowN=0;
+}
+
+// ── Activate / Suspend ────────────────────────
+async function activateClient(id, btn) {
+  if (btn) { btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
+  const res  = await fetch(`/api/admin/clients/${id}/activate`,{method:'POST'});
+  const data = await res.json();
+  if (data.success) {
+    toast('✅', `${data.client.businessName} is now LIVE! ${data.webhooks?.success?'Webhooks configured ✓':'⚠ Check webhooks'}`);
+    await loadClients(); await loadStats();
+  } else {
+    toast('⚠', data.error||'Activation failed');
+    if (btn) { btn.disabled=false; btn.innerHTML='▶ Activate'; }
+  }
+}
+
+async function suspendClient(id) {
+  await fetch(`/api/admin/clients/${id}/suspend`,{method:'POST'});
+  toast('⚠','Client suspended'); await loadClients(); await loadStats();
+}
+
+function copyLink(id) {
+  navigator.clipboard.writeText(`${location.origin}/dashboard?id=${id}`);
+  toast('📋','Dashboard link copied — send to client');
+}
+
+// ── Orders ────────────────────────────────────
+async function loadOrders() {
+  const orders = await fetch('/api/admin/orders').then(r=>r.json());
+  document.getElementById('orders-body').innerHTML = orders.map(o=>`
+    <div style="display:grid;grid-template-columns:80px 150px 1fr 95px 100px 85px;gap:10px;align-items:center;padding:11px 18px;border-bottom:1px solid rgba(201,168,76,.04);font-size:12px;">
+      <div style="font-family:'Cormorant Garamond',serif;color:var(--gold-d);">${o.id}</div>
+      <div style="color:var(--muted);font-size:11px;">${o.businessName}</div>
+      <div style="color:var(--text);">${o.customer} · ${o.channel}</div>
+      <div style="color:var(--text);">₦${o.total?.toLocaleString()}</div>
+      <div><span class="badge ${o.status}">${o.status}</span></div>
+      <div style="color:${o.paymentStatus==='verified'?'var(--green)':'var(--dim)'};">${o.paymentStatus==='verified'?'✓ Paid':'Pending'}</div>
+    </div>`).join('') || '<div style="padding:24px;text-align:center;color:var(--dim);">No orders yet.</div>';
+}
+
+// ── Forwarding card ───────────────────────────
+function updateForwardingCard() {
+  const pub    = document.getElementById('f-public-phone').value.trim();
+  const twilio = document.getElementById('f-phone').value.trim();
+  const card   = document.getElementById('fwd-card');
+  const code   = document.getElementById('fwd-code');
+  if (pub && twilio) {
+    // Format Twilio number for dialing code
+    const dialNum = twilio.startsWith('+') ? twilio : '+' + twilio;
+    code.textContent = `*21*${dialNum}#`;
+    card.style.display = 'block';
+  } else {
+    card.style.display = 'none';
+  }
+}
+
+function copyFwdCode() {
+  const pub    = document.getElementById('f-public-phone').value.trim();
+  const twilio = document.getElementById('f-phone').value.trim();
+  const dialNum = twilio.startsWith('+') ? twilio : '+' + twilio;
+  const text = `Hi! To activate your AI agent, dial this on your phone:\n\n*21*${dialNum}#\n\nThis forwards calls from your number (${pub}) to Antares.\nTo pause: ##21#`;
+  navigator.clipboard.writeText(text);
+  toast('📋', 'Forwarding instructions copied — send to client!');
+}
+
+
+function view(v) {
+  ['overview','clients','pending','orders','add'].forEach(n=>{
+    const el = document.getElementById('v-'+n);
+    if (el) el.style.display = n===v ? '' : 'none';
+  });
+  if (v==='overview') { loadStats(); renderOverviewList(); }
+  if (v==='clients')  { loadClients(); }
+  if (v==='pending')  { loadClients(); }
+  if (v==='orders')   loadOrders();
+  if (v==='add')      { resetForm(); addRow(); }
+}
+
+function toast(ico,msg) {
+  try {
+    const ti=document.getElementById('t-i'); if(ti) ti.textContent=ico;
+    const tm=document.getElementById('t-m'); if(tm) tm.textContent=msg;
+    const t=document.getElementById('toast');
+    if(t){ t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),4000); }
+  } catch(e) { console.log('Toast:',msg); }
+}
+// ── Edit Client ───────────────────────────────
+let editClientId = null;
+let editRowN = 0;
+
+function openEdit(id) {
+  const c = clients.find(x=>x.id===id);
+  if (!c) return;
+  editClientId = id;
+  document.getElementById('e-name').value     = c.businessName || '';
+  document.getElementById('e-owner').value    = c.ownerName || '';
+  document.getElementById('e-pubphone').value = c.publicPhone || '';
+  document.getElementById('e-wa').value       = c.whatsappNumber || '';
+  document.getElementById('e-phone').value    = c.phone || '';
+  document.getElementById('e-sid').value      = c.twilioSid || '';
+  document.getElementById('e-tok').value      = c.twilioToken || '';
+  document.getElementById('e-bank').value     = c.bankName || '';
+  document.getElementById('e-acct').value     = c.bankAccount || '';
+  document.getElementById('e-acctname').value = c.bankAccountName || '';
+  document.getElementById('e-persona').value  = c.personality || '';
+  document.getElementById('e-extra').value    = c.extraInfo || '';
+  // Load menu rows
+  const mr = document.getElementById('e-mrows');
+  mr.innerHTML = '';
+  editRowN = 0;
+  (c.menuOrServices || []).forEach(item => addEditRow(item.name, item.category, item.price, item.description));
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function closeEdit() { document.getElementById('edit-modal').classList.add('hidden'); editClientId = null; }
+
+function addEditRow(name='', cat='General', price='', desc='') {
+  const d = document.createElement('div');
+  d.className = 'mrow'; d.id = `erow-${editRowN}`;
+  d.innerHTML = `<input class="rn" placeholder="Item name" value="${name}"/>
+    <input class="rc" placeholder="Category" value="${cat}"/>
+    <input class="rp" type="number" placeholder="0" value="${price}"/>
+    <input class="rd" placeholder="Description" value="${desc}"/>
+    <button class="del" onclick="this.parentElement.remove()">✕</button>`;
+  document.getElementById('e-mrows').appendChild(d);
+  editRowN++;
+}
+
+function getEditMenu() {
+  return Array.from(document.getElementById('e-mrows').querySelectorAll('.mrow')).map(r=>({
+    name:r.querySelector('.rn').value.trim(),
+    category:r.querySelector('.rc').value.trim()||'General',
+    price:parseFloat(r.querySelector('.rp').value)||0,
+    description:r.querySelector('.rd').value.trim(),
+  })).filter(i=>i.name);
+}
+
+async function saveEdit() {
+  if (!editClientId) return;
+  const payload = {
+    businessName:    document.getElementById('e-name').value.trim(),
+    ownerName:       document.getElementById('e-owner').value.trim(),
+    publicPhone:     document.getElementById('e-pubphone').value.trim(),
+    whatsappNumber:  document.getElementById('e-wa').value.trim(),
+    phone:           document.getElementById('e-phone').value.trim(),
+    twilioSid:       document.getElementById('e-sid').value.trim(),
+    twilioToken:     document.getElementById('e-tok').value.trim(),
+    bankName:        document.getElementById('e-bank').value.trim(),
+    bankAccount:     document.getElementById('e-acct').value.trim(),
+    bankAccountName: document.getElementById('e-acctname').value.trim(),
+    personality:     document.getElementById('e-persona').value.trim(),
+    extraInfo:       document.getElementById('e-extra').value.trim(),
+    menuOrServices:  getEditMenu(),
+  };
+  const res  = await fetch(`/api/admin/clients/${editClientId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data = await res.json();
+  if (data.success) {
+    toast('✅', `${payload.businessName} updated successfully`);
+    closeEdit();
+    await loadClients();
+  } else { toast('⚠', data.error || 'Update failed'); }
+}
+
+// ── Client Detail View ────────────────────────
+function openDetail(id) {
+  const c = clients.find(x=>x.id===id);
+  if (!c) return;
+  document.getElementById('dm-title').textContent = c.businessName;
+  const primary = c.colors?.primary || '#C9A84C';
+
+  const menuHTML = (c.menuOrServices||[]).length > 0
+    ? `<table class="menu-table">
+        <tr><th>Item</th><th>Category</th><th>Price</th><th>Description</th></tr>
+        ${(c.menuOrServices||[]).map(i=>`<tr><td>${i.name}</td><td style="color:var(--dim)">${i.category}</td><td style="color:var(--gold)">₦${Number(i.price||0).toLocaleString()}</td><td style="color:var(--muted)">${i.description||'—'}</td></tr>`).join('')}
+      </table>`
+    : '<div style="color:var(--dim);font-size:12px;">No menu items added yet.</div>';
+
+  document.getElementById('dm-body').innerHTML = `
+    <div class="modal-section">
+      <h4>Business Info</h4>
+      <div class="detail-row"><span class="detail-key">Business Name</span><span class="detail-val">${c.businessName}</span></div>
+      <div class="detail-row"><span class="detail-key">Type</span><span class="detail-val">${c.businessType||'—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Owner</span><span class="detail-val">${c.ownerName||'—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Email</span><span class="detail-val">${c.email||'—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Status</span><span class="detail-val"><span class="badge ${c.status}">${c.status}</span></span></div>
+      <div class="detail-row"><span class="detail-key">Created</span><span class="detail-val">${new Date(c.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</span></div>
+    </div>
+    <div class="modal-section">
+      <h4>Contact & Channels</h4>
+      <div class="detail-row"><span class="detail-key">Public Phone</span><span class="detail-val">${c.publicPhone||'—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Twilio Number</span><span class="detail-val">${c.phone||'—'}</span></div>
+      <div class="detail-row"><span class="detail-key">WhatsApp</span><span class="detail-val">${c.whatsappNumber||'—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Webhooks</span><span class="detail-val">${c.webhooksOk?'<span style="color:var(--green)">✓ Configured</span>':'<span style="color:var(--amber)">⚠ Not configured</span>'}</span></div>
+    </div>
+    <div class="modal-section">
+      <h4>Payment Details</h4>
+      <div class="detail-row"><span class="detail-key">Bank</span><span class="detail-val">${c.bankName||'—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Account Number</span><span class="detail-val">${c.bankAccount||'—'}</span></div>
+      <div class="detail-row"><span class="detail-key">Account Name</span><span class="detail-val">${c.bankAccountName||'—'}</span></div>
+    </div>
+    <div class="modal-section">
+      <h4>Menu / Services (${(c.menuOrServices||[]).length} items)</h4>
+      ${menuHTML}
+    </div>
+    <div class="modal-section">
+      <h4>AI Personality</h4>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6;background:var(--s2);border-radius:8px;padding:12px;border:1px solid var(--border);">${(c.personality||'Not set').replace(/
+/g,'<br/>')}</div>
+    </div>
+    <div style="display:flex;gap:10px;padding-top:12px;">
+      <button class="btn btn-edit" onclick="closeDetail();openEdit('${c.id}');" style="flex:1;padding:11px;justify-content:center;">✏ Edit This Client</button>
+      <button class="btn btn-outline" onclick="closeDetail()">Close</button>
+    </div>
+  `;
+  document.getElementById('detail-modal').classList.remove('hidden');
+}
+
+function closeDetail() { document.getElementById('detail-modal').classList.add('hidden'); }
+
+</script>
+</body>
+</html>
