@@ -15,6 +15,9 @@ router.post("/voice/:clientId", async (req, res) => {
     twiml.say({ voice:"Polly.Joanna" }, "This service is currently unavailable.");
     res.type("text/xml"); return res.send(twiml.toString());
   }
+  // Emit live call started event
+  req.app.get("io").emit(`call_started:${client.id}`, { from: req.body.From, clientId: client.id, businessName: client.businessName, time: new Date().toISOString() });
+  req.app.get("io").emit("call_started", { from: req.body.From, clientId: client.id, businessName: client.businessName, time: new Date().toISOString() });
   const gather = twiml.gather({ input:"speech", action:`/twilio/voice-respond/${client.id}`, method:"POST", speechTimeout:"auto", language:"en-NG" });
   gather.say({ voice:"Polly.Joanna" }, `Welcome to ${client.businessName}. I'm your AI assistant. How may I help you today?`);
   twiml.say({ voice:"Polly.Joanna" }, "I didn't catch that. Please call back and speak after the greeting. Goodbye.");
@@ -55,7 +58,15 @@ router.post("/voice-respond/:clientId", async (req, res) => {
   res.type("text/xml"); res.send(twiml.toString());
 });
 
-router.post("/status/:clientId", (req, res) => { res.sendStatus(200); });
+router.post("/status/:clientId", (req, res) => {
+  const status = req.body.CallStatus;
+  const client = getClientById(req.params.clientId);
+  if (client && (status === "completed" || status === "no-answer" || status === "busy" || status === "failed")) {
+    req.app.get("io").emit(`call_ended:${client.id}`, { clientId: client.id, status, duration: req.body.CallDuration || 0 });
+    req.app.get("io").emit("call_ended", { clientId: client.id, businessName: client.businessName, status, duration: req.body.CallDuration || 0 });
+  }
+  res.sendStatus(200);
+});
 
 router.post("/sms/:clientId", async (req, res) => {
   const client = getClientById(req.params.clientId);
@@ -81,3 +92,4 @@ router.post("/whatsapp/:clientId", async (req, res) => {
 });
 
 module.exports = router;
+      
