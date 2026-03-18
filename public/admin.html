@@ -262,5 +262,389 @@ button.lb:hover{background:var(--gold-l);}
         <button class="btn btn-gold" onclick="view('add')">ï¼ Add Client</button>
       </div>
       <div class="stats fi">
-        <div class="stat"><div class="slbl">Total Clients</div><div class="sval gold" id="s-t">â</div><div class="sinfo" id="s-a">â</div><div class="sico">ð</div></div>
+        div class="stat"><div class="slbl">Total Clients</div><div class="sval gold" id="s-t">â</div><div class="sinfo" id="s-a">â</div><div class="sico">ð</div></div>
+        <div class="stat"><div class="slbl">Pending Activation</div><div class="sval" id="s-p">â</div><div class="sinfo">Awaiting payment</div><div class="sico">â³</div></div>
+        <div class="stat"><div class="slbl">Orders Today</div><div class="sval" id="s-o">â</div><div class="sinfo">Across all clients</div><div class="sico">ð</div></div>
+        <div class="stat"><div class="slbl">Platform Revenue</div><div class="sval g" id="s-r">â</div><div class="sinfo">Verified payments</div><div class="sico">â¦</div></div>
+      </div>
+      <div class="panel fi">
+        <div class="ph"><div class="pt">Recent Clients</div><span class="pl" onclick="view('clients')">View all â</span></div>
+        <div id="ov-list"></div>
+      </div>
+    </div>
+
+    <!-- ALL CLIENTS -->
+    <div id="v-clients" style="display:none">
+      <div class="phdr fi">
+        <div><div class="ptitle">All <em>Clients</em></div><div class="psub">Active agents on the platform</div></div>
+        <button class="btn btn-gold" onclick="view('add')">ï¼ Add Client</button>
+      </div>
+      <div class="cg fi" id="cg-active"></div>
+    </div>
+
+    <!-- PENDING -->
+    <div id="v-pending" style="display:none">
+      <div class="phdr fi">
+        <div><div class="ptitle"><em>Pending</em> Activation</div><div class="psub">Clients who have not yet paid â flip the switch once they do</div></div>
+      </div>
+      <div class="cg fi" id="cg-pending"></div>
+    </div>
+
+    <!-- ORDERS -->
+    <div id="v-orders" style="display:none">
+      <div class="phdr fi">
+        <div><div class="ptitle">All <em>Orders</em></div><div class="psub">Platform-wide</div></div>
+      </div>
+      <div class="panel fi">
+        <div class="ph"><div class="pt">Orders</div><span class="pl" onclick="loadOrders()">â» Refresh</span></div>
+        <div id="orders-body"></div>
+      </div>
+    </div>
+
+    <!-- ADD CLIENT -->
+    <div id="v-add" style="display:none">
+      <div class="phdr fi">
+        <div><div class="ptitle">Add <em>Client</em></div><div class="psub">Type the business name â everything else auto-fills</div></div>
+      </div>
+
+      <div class="panel fi">
+        <div class="ph"><div class="pt">New Client Setup</div></div>
+        <div class="form-body">
+
+          <!-- Step 1: Business name â triggers auto-fetch -->
+          <div class="slbl">1 Â· Business Identity</div>
+          <div class="fr">
+            <div class="field">
+              <label>Business Name *</label>
+              <input id="f-name" placeholder="e.g. JRoyal Grills n Chop" oninput="onNameInput()"/>
+            </div>
+            <div class="field">
+              <label>Owner Name</label>
+              <input id="f-owner" placeholder="e.g. Mr. Emmanuel"/>
+            </div>
+          </div>
+
+          <!-- Brand Preview (auto-populated) -->
+          <div class="brand-preview" id="brand-preview">
+            <div class="bp-header" id="bp-header">
+              <img class="bp-logo" id="bp-logo" src="" alt=""/>
+              <div>
+                <div class="bp-name" id="bp-name">â</div>
+                <div class="bp-type" id="bp-type">â</div>
+              </div>
+            </div>
+            <div class="bp-body" id="bp-body">AI personality will be auto-generated for this business type.</div>
+          </div>
+          <div id="fetch-status" style="font-size:12px;color:var(--muted);display:none;align-items:center;gap:8px;"></div>
+
+          <!-- Step 2: Phone Numbers -->
+          <div class="slbl">2 Â· Phone Numbers</div>
+
+          <div class="fr">
+            <div class="field">
+              <label>Client's MTN/Business Number (what customers dial)</label>
+              <input id="f-public-phone" placeholder="08012345678" oninput="updateForwardingCard()"/>
+              <div class="hint">Their existing MTN, Airtel, or Glo number. Customers keep calling this.</div>
+            </div>
+            <div class="field">
+              <label>Twilio Number * (hidden â receives the forwarded calls)</label>
+              <input id="f-phone" placeholder="+2348099999999" oninput="updateForwardingCard()"/>
+              <div class="hint">Buy this on Twilio (~$1/month). Customers never see or call this number.</div>
+            </div>
+          </div>
+
+          <!-- Forwarding instruction card â auto-fills -->
+          <div id="fwd-card" style="display:none;background:rgba(201,168,76,0.06);border:1px solid var(--border-hi);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-d);margin-bottom:10px;">ð Forwarding Setup â Send This to Client</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.7;">
+              Tell the client to dial this on their MTN line:<br/>
+              <span style="font-family:'Cormorant Garamond',serif;font-size:22px;color:var(--gold-l);letter-spacing:.05em;" id="fwd-code">*21*+xxxx#</span>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.6;">
+              â All calls to their number forward to Antares automatically<br/>
+              â To pause forwarding: <span style="color:var(--text);">##21#</span><br/>
+              â Works on MTN, Airtel, Glo, 9mobile
+            </div>
+            <button onclick="copyFwdCode()" style="margin-top:10px;background:none;border:1px solid var(--border-hi);border-radius:6px;padding:6px 12px;color:var(--gold-d);font-family:'Outfit',sans-serif;font-size:11px;cursor:pointer;letter-spacing:.08em;">Copy Instructions</button>
+          </div>
+
+          <div class="fr">
+            <div class="field">
+              <label>WhatsApp Number (optional)</label>
+              <input id="f-wa" placeholder="whatsapp:+2348099999999"/>
+              <div class="hint">Twilio WhatsApp-enabled number. Can be the same Twilio number above.</div>
+            </div>
+            <div class="field" style="align-self:flex-start;margin-top:0;">
+              <label>SMS (optional)</label>
+              <div class="hint" style="margin-top:8px;line-height:1.7;">SMS replies go out from the Twilio number automatically. No extra setup needed.</div>
+            </div>
+          </div>
+          <div class="fr">
+            <div class="field">
+              <label>Twilio Account SID *</label>
+              <input id="f-sid" placeholder="ACxxxxxxxxxxxxxxxx"/>
+            </div>
+            <div class="field">
+              <label>Twilio Auth Token *</label>
+              <input id="f-tok" type="password" placeholder="Auth token"/>
+            </div>
+          </div>
+
+          <!-- Step 3: Dashboard password -->
+          <div class="slbl">3 Â· Dashboard Access</div>
+          <div class="fr">
+            <div class="field">
+              <label>Dashboard Password * (client uses this to login)</label>
+              <input id="f-pw" placeholder="Choose a password for this client"/>
+            </div>
+            <div class="field">
+              <label>Email (optional)</label>
+              <input id="f-email" type="email" placeholder="owner@business.com"/>
+            </div>
+          </div>
+
+          <!-- Step 4: Payments (optional) -->
+          <div class="slbl">4 Â· Payment Setup (optional)</div>
+          <div class="fr">
+            <div class="field">
+              <label>Bank Name</label><input id="f-bank" placeholder="GTBank"/>
+            </div>
+            <div class="field">
+              <label>Account Number</label><input id="f-acct" placeholder="0123456789"/>
+            </div>
+          </div>
+          <div class="fr">
+            <div class="field">
+              <label>Account Name</label><input id="f-acctname" placeholder="Business trading name"/>
+            </div>
+            <div class="field">
+              <label>Paystack Secret Key</label><input id="f-ps" type="password" placeholder="sk_live_xxxxxxxx"/>
+            </div>
+          </div>
+
+          <!-- Step 5: Services/Menu -->
+          <div class="slbl">5 Â· Menu / Services (optional â AI uses these for orders)</div>
+          <div class="mb">
+            <div style="display:grid;grid-template-columns:1fr 90px 90px 80px auto;gap:7px;margin-bottom:8px;">
+              <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Name</div>
+              <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Category</div>
+              <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Price â¦</div>
+              <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Description</div>
+              <div></div>
+            </div>
+            <div id="mrows"></div>
+            <button class="add-row" onclick="addRow()">ï¼ Add item / service</button>
+          </div>
+
+          <!-- Step 6: AI Personality (auto-filled, editable) -->
+          <div class="slbl">6 Â· AI Personality (auto-generated â edit if needed)</div>
+          <div class="field">
+            <textarea id="f-persona" rows="4" placeholder="AI personality will auto-fill once you enter the business name..."></textarea>
+          </div>
+
+          <div class="msg err" id="add-err">â  <span id="add-err-t">Error</span></div>
+          <div class="msg ok"  id="add-ok">â Client added! They are in Pending until you activate them after payment.</div>
+
+          <div style="display:flex;gap:10px;padding-top:4px;">
+            <button class="btn btn-gold" onclick="submitClient()" id="add-btn" style="flex:1;padding:13px;justify-content:center;">â¦ &nbsp;Add Client</button>
+            <button class="btn btn-outline" onclick="view('clients')">Cancel</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+
+<!-- LIVE CALL BANNER (admin-wide) -->
+<div class="call-banner" id="global-call-banner">
+  <div class="call-pulse"></div>
+  <span class="call-banner-text">ð Live call in progress â <span id="call-banner-biz">â</span></span>
+  <span class="call-banner-sub" id="call-banner-from">â</span>
+</div>
+
+<!-- CLIENT DETAIL MODAL -->
+<div class="modal-overlay hidden" id="detail-modal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title" id="dm-title">Client Details</div>
+      <button class="modal-close" onclick="closeDetail()">â</button>
+    </div>
+    <div id="dm-body"></div>
+  </div>
+</div>
+
+<!-- EDIT CLIENT MODAL -->
+<div class="modal-overlay hidden" id="edit-modal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Edit Client</div>
+      <button class="modal-close" onclick="closeEdit()">â</button>
+    </div>
+    <div class="modal-section">
+      <h4>Business Info</h4>
+      <div class="fr">
+        <div class="field"><label>Business Name *</label><input id="e-name" class="li"/></div>
+        <div class="field"><label>Owner Name</label><input id="e-owner" class="li"/></div>
+      </div>
+      <div class="fr">
+        <div class="field"><label>Public Phone (MTN)</label><input id="e-pubphone" class="li"/></div>
+        <div class="field"><label>WhatsApp Number</label><input id="e-wa" class="li"/></div>
+      </div>
+    </div>
+    <div class="modal-section">
+      <h4>Twilio Credentials</h4>
+      <div class="fr">
+        <div class="field"><label>Twilio Phone</label><input id="e-phone" class="li"/></div>
+        <div class="field"><label>Account SID</label><input id="e-sid" class="li"/></div>
+      </div>
+      <div class="field"><label>Auth Token</label><input id="e-tok" class="li" type="password"/></div>
+    </div>
+    <div class="modal-section">
+      <h4>Payment Details</h4>
+      <div class="fr">
+        <div class="field"><label>Bank Name</label><input id="e-bank" class="li"/></div>
+        <div class="field"><label>Account Number</label><input id="e-acct" class="li"/></div>
+      </div>
+      <div class="field"><label>Account Name</label><input id="e-acctname" class="li"/></div>
+    </div>
+    <div class="modal-section">
+      <h4>Menu / Services</h4>
+      <div style="display:grid;grid-template-columns:1fr 90px 90px 80px auto;gap:7px;margin-bottom:8px;">
+        <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Name</div>
+        <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Category</div>
+        <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Price â¦</div>
+        <div style="font-size:9px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;">Description</div>
+        <div></div>
+      </div>
+      <div id="e-mrows"></div>
+      <button class="add-row" onclick="addEditRow()">ï¼ Add item</button>
+    </div>
+    <div class="modal-section">
+      <h4>AI Personality</h4>
+      <div class="field"><textarea id="e-persona" rows="4" class="li" style="resize:vertical;"></textarea></div>
+    </div>
+    <div class="modal-section">
+      <h4>Extra Info</h4>
+      <div class="field"><textarea id="e-extra" rows="3" class="li" style="resize:vertical;"></textarea></div>
+    </div>
+    <div style="display:flex;gap:10px;padding-top:8px;">
+      <button class="btn btn-gold" onclick="saveEdit()" style="flex:1;padding:13px;justify-content:center;">ð¾ &nbsp;Save Changes</button>
+      <button class="btn btn-outline" onclick="closeEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><span id="t-i">â¦</span><span id="t-m">â</span></div>
+
+<script>
+let clients = [];
+let fetchTimer = null;
+let currentBrand = null;
+
+// ââ Auth ââââââââââââââââââââââââââââââââââââââ
+async function doLogin() {
+  const res = await fetch('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('apw').value})});
+  if (res.ok) { document.getElementById('login').style.display='none'; document.getElementById('app').classList.add('on'); init(); }
+  else document.getElementById('aerr').style.display='block';
+}
+async function doLogout() { await fetch('/api/admin/logout',{method:'POST'}); location.reload(); }
+
+// ââ Init ââââââââââââââââââââââââââââââââââââââ
+function init() {
+  startClock();
+  document.getElementById('pdate').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  loadStats(); loadClients();
+  // Socket
+  const socket = io();
+  socket.on('client_activated', () => { loadClients(); loadStats(); toast('â','Client activated and live!'); });
+  socket.on('call_started', (data) => {
+    document.getElementById('global-call-banner').classList.add('show');
+    document.getElementById('call-banner-biz').textContent = data.businessName;
+    document.getElementById('call-banner-from').textContent = 'Caller: ' + data.from;
+    toast('ð', `Live call â ${data.businessName}`);
+  });
+  socket.on('call_ended', (data) => {
+    document.getElementById('global-call-banner').classList.remove('show');
+    toast('â', `Call ended â ${data.businessName} (${data.duration || 0}s)`);
+  });
+}
+
+function startClock() {
+  const t = () => document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  t(); setInterval(t,1000);
+}
+
+async function loadStats() {
+  const s = await fetch('/api/admin/stats').then(r=>r.json());
+  document.getElementById('s-t').textContent  = s.total;
+  document.getElementById('s-a').textContent  = `${s.active} active`;
+  document.getElementById('s-p').textContent  = s.pending;
+  document.getElementById('s-o').textContent  = s.todayOrders;
+  document.getElementById('s-r').textContent  = 'â¦'+(s.revenue/1000).toFixed(0)+'k';
+  document.getElementById('nb-t').textContent = s.total;
+  document.getElementById('nb-a').textContent = s.active;
+  document.getElementById('nb-p').textContent = s.pending;
+}
+
+async function loadClients() {
+  clients = await fetch('/api/admin/clients').then(r=>r.json());
+  renderClients();
+  renderOverviewList();
+}
+
+// ââ Render client cards âââââââââââââââââââââââ
+function clientCardHTML(c) {
+  const initials = c.businessName.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const primary  = c.colors?.primary || '#C9A84C';
+  const accent   = c.colors?.secondary || '#E4C97E';
+  const logoHTML = c.logoUrl
+    ? `<img class="cc-logo" src="${c.logoUrl}" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><div class="cc-logo-placeholder" style="display:none;background:${primary}20;color:${accent};border:1px solid ${primary}40;">${initials}</div>`
+    : `<div class="cc-logo-placeholder" style="background:${primary}20;color:${accent};border:1px solid ${primary}40;">${initials}</div>`;
+
+  const statusBadge = c.status==='active'?'active':c.status==='pending'?'pending':'suspended';
+  const wh = c.webhooksOk ? `<span class="badge live">â Live</span>` : `<span class="badge nowehook">â  Webhooks</span>`;
+
+  const actions = c.status==='pending'
+    ? `<button class="btn btn-green" onclick="activateClient('${c.id}',this)">â¶ Activate</button><button class="btn btn-outline" onclick="copyLink('${c.id}')">ð Link</button><button class="btn btn-edit" onclick="openEdit('${c.id}')">â Edit</button>`
+    : c.active
+      ? `<button class="btn btn-red" onclick="suspendClient('${c.id}')">Suspend</button><button class="btn btn-outline" onclick="copyLink('${c.id}')">ð Link</button><button class="btn btn-edit" onclick="openEdit('${c.id}')">â Edit</button>`
+      : `<button class="btn btn-green" onclick="activateClient('${c.id}',this)">â¶ Re-activate</button><button class="btn btn-edit" onclick="openEdit('${c.id}')">â Edit</button>`;
+
+  return `
+  <div class="cc" id="card-${c.id}">
+    <div class="cc-top" style="background:${primary}10;cursor:pointer;" onclick="openDetail('${c.id}')">
+      ${logoHTML}
+      <div class="cc-info">
+        <div class="cc-name">${c.businessName}</div>
+        <div class="cc-type">${c.businessType || 'business'}</div>
+        <div class="cc-phone">${c.publicPhone || c.phone}</div>
+      </div>
+      <div style="margin-left:auto;font-size:10px;color:var(--dim);padding-left:8px;">View âº</div>
+    </div>
+    <div class="cc-body">
+      <div class="cc-badges">
+        <span class="badge ${statusBadge}">${c.status}</span>
+        ${wh}
+        ${c.whatsappNumber ? '<span class="badge live">ð¬ WA</span>' : ''}
+      </div>
+      <div class="cc-actions">${actions}</div>
+    </div>
+  </div>`;
+}
+
+function renderClients() {
+  const active  = clients.filter(c=>c.active);
+  const pending = clients.filter(c=>!c.active);
+  document.getElementById('cg-active').innerHTML  = active.map(clientCardHTML).join('') || '<div style="padding:24px;color:var(--dim);font-size:13px;">No active clients yet.</div>';
+  document.getElementById('cg-pending').innerHTML = pending.map(clientCardHTML).join('') || '<div style="padding:24px;color:var(--dim);font-size:13px;">No pending clients.</div>';
+}
+
+function renderOverviewList() {
+  document.getElementById('ov-list').innerHTML = clients.slice(0,6).map(c=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid rgba(201,168,76,.04);">
+      ${c.logoUrl ? `<img src="${c.logoUrl}" style="width:28px;height:28px;border-radius:6px;object-fit:cover;" onerror="this.style.display='none'"/>` : `<div style="width:28px;height:28px;border-radius:6px;background:${c.colors?.primary||'#333'}20;display:flex;align-items:center;justify-content:center
         
