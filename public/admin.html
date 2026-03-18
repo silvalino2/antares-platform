@@ -647,4 +647,351 @@ function renderOverviewList() {
   document.getElementById('ov-list').innerHTML = clients.slice(0,6).map(c=>`
     <div style="display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid rgba(201,168,76,.04);">
       ${c.logoUrl ? `<img src="${c.logoUrl}" style="width:28px;height:28px;border-radius:6px;object-fit:cover;" onerror="this.style.display='none'"/>` : `<div style="width:28px;height:28px;border-radius:6px;background:${c.colors?.primary||'#333'}20;display:flex;align-items:center;justify-content:center
-        
+              <div style="flex:1;"><div style="font-size:13px;color:var(--text);">${c.businessName}</div><div style="font-size:10px;color:var(--dim);margin-top:2px;">${c.phone} Â· ${c.businessType||'business'}</div></div>
+      <span class="badge ${c.status==='active'?'active':c.status==='pending'?'pending':'suspended'}">${c.status}</span>
+    </div>`).join('') || '<div style="padding:20px;text-align:center;color:var(--dim);font-size:13px;">No clients yet.</div>';
+}
+
+// ââ Auto-fetch brand on name input ââââââââââââ
+function onNameInput() {
+  clearTimeout(fetchTimer);
+  const name = document.getElementById('f-name').value.trim();
+  if (name.length < 3) return hideBrandPreview();
+  fetchTimer = setTimeout(() => fetchBrand(name), 800);
+}
+
+async function fetchBrand(name) {
+  const status = document.getElementById('fetch-status');
+  status.style.display = 'flex';
+  status.innerHTML = `<span class="spin"></span> Finding brand for "${name}"...`;
+
+  try {
+    const res  = await fetch('/api/admin/fetch-brand',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({businessName:name})});
+    const data = await res.json();
+    currentBrand = data;
+
+    // Update brand preview
+    const preview = document.getElementById('brand-preview');
+    const colors  = data.colors;
+    preview.style.background = colors.surface || '#1A1510';
+    preview.style.display    = 'block';
+    document.getElementById('bp-header').style.background = colors.primary + '20';
+    document.getElementById('bp-logo').src  = data.logoUrl;
+    document.getElementById('bp-name').textContent = name;
+    document.getElementById('bp-name').style.color = colors.text || '#F2EDE4';
+    document.getElementById('bp-type').textContent = data.businessType;
+    document.getElementById('bp-type').style.color = colors.secondary || '#C9A84C';
+    document.getElementById('bp-body').textContent = `Detected as: ${data.businessType} Â· AI personality auto-generated`;
+    document.getElementById('bp-body').style.color = colors.muted || '#8A7D68';
+
+    // Fill personality
+    document.getElementById('f-persona').value = data.personality || '';
+
+    status.innerHTML = `â Brand detected â <span style="color:var(--gold)">${data.businessType}</span>`;
+    setTimeout(() => status.style.display='none', 2500);
+
+  } catch(e) {
+    status.innerHTML = 'â  Could not auto-detect brand. You can continue manually.';
+    setTimeout(() => status.style.display='none', 3000);
+  }
+}
+
+function hideBrandPreview() {
+  document.getElementById('brand-preview').style.display = 'none';
+  document.getElementById('fetch-status').style.display  = 'none';
+}
+
+// ââ Menu rows âââââââââââââââââââââââââââââââââ
+let rowN = 0;
+function addRow(name='',cat='General',price='',desc='') {
+  const d = document.createElement('div');
+  d.className = 'mrow'; d.id = `row-${rowN}`;
+  d.innerHTML = `
+    <input class="rn" placeholder="Item/service name" value="${name}"/>
+    <input class="rc" placeholder="Category" value="${cat}"/>
+    <input class="rp" type="number" placeholder="0" value="${price}"/>
+    <input class="rd" placeholder="Short description" value="${desc}"/>
+    <button class="del" onclick="this.parentElement.remove()">â</button>`;
+  document.getElementById('mrows').appendChild(d);
+  rowN++;
+}
+
+function getMenu() {
+  return Array.from(document.querySelectorAll('.mrow')).map(r=>({
+    name:r.querySelector('.rn').value.trim(),
+    category:r.querySelector('.rc').value.trim()||'General',
+    price:parseFloat(r.querySelector('.rp').value)||0,
+    description:r.querySelector('.rd').value.trim(),
+  })).filter(i=>i.name);
+}
+
+// ââ Submit client âââââââââââââââââââââââââââââ
+async function submitClient() {
+  const btn  = document.getElementById('add-btn');
+  const name = document.getElementById('f-name').value.trim();
+  const phone= document.getElementById('f-phone').value.trim();
+  const sid  = document.getElementById('f-sid').value.trim();
+  const tok  = document.getElementById('f-tok').value.trim();
+  const pw   = document.getElementById('f-pw').value.trim();
+  if (!name||!phone||!sid||!tok||!pw) { showErr('Fill in all required fields (marked *)'); return; }
+
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>&nbsp;Adding client...';
+
+  const payload = {
+    businessName:    name,
+    businessType:    currentBrand?.businessType || 'business',
+    logoUrl:         currentBrand?.logoUrl || '',
+    colors:          currentBrand?.colors || {},
+    personality:     document.getElementById('f-persona').value.trim(),
+    ownerName:       document.getElementById('f-owner').value.trim(),
+    email:           document.getElementById('f-email').value.trim(),
+    publicPhone:     document.getElementById('f-public-phone').value.trim(),
+    phone, twilioSid:sid, twilioToken:tok,
+    whatsappNumber:  document.getElementById('f-wa').value.trim(),
+    dashboardPassword: pw,
+    bankName:        document.getElementById('f-bank').value.trim(),
+    bankAccount:     document.getElementById('f-acct').value.trim(),
+    bankAccountName: document.getElementById('f-acctname').value.trim(),
+    paystackKey:     document.getElementById('f-ps').value.trim(),
+    menuOrServices:  getMenu(),
+  };
+
+  const res  = await fetch('/api/admin/clients',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data = await res.json();
+
+  btn.disabled=false; btn.innerHTML='â¦ &nbsp;Add Client';
+
+  if (data.success) {
+    document.getElementById('add-ok').classList.add('show');
+    document.getElementById('add-err').classList.remove('show');
+    clients.unshift(data.client);
+    await loadStats();
+    toast('â¦',`${name} added! Activate after payment.`);
+    setTimeout(()=>{ view('pending'); document.getElementById('add-ok').classList.remove('show'); resetForm(); },2500);
+  } else { showErr(data.error||'Something went wrong.'); }
+}
+
+function showErr(m) { document.getElementById('add-err-t').textContent=m; document.getElementById('add-err').classList.add('show'); }
+function resetForm() {
+  ['f-name','f-owner','f-email','f-public-phone','f-phone','f-sid','f-tok','f-wa','f-pw','f-bank','f-acct','f-acctname','f-ps','f-persona'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('mrows').innerHTML='';
+  hideBrandPreview(); currentBrand=null; rowN=0;
+}
+
+// ââ Activate / Suspend ââââââââââââââââââââââââ
+async function activateClient(id, btn) {
+  if (btn) { btn.disabled=true; btn.innerHTML='<span class="spin"></span>'; }
+  const res  = await fetch(`/api/admin/clients/${id}/activate`,{method:'POST'});
+  const data = await res.json();
+  if (data.success) {
+    toast('â', `${data.client.businessName} is now LIVE! ${data.webhooks?.success?'Webhooks configured â':'â  Check webhooks'}`);
+    await loadClients(); await loadStats();
+  } else {
+    toast('â ', data.error||'Activation failed');
+    if (btn) { btn.disabled=false; btn.innerHTML='â¶ Activate'; }
+  }
+}
+
+async function suspendClient(id) {
+  await fetch(`/api/admin/clients/${id}/suspend`,{method:'POST'});
+  toast('â ','Client suspended'); await loadClients(); await loadStats();
+}
+
+function copyLink(id) {
+  navigator.clipboard.writeText(`${location.origin}/dashboard?id=${id}`);
+  toast('ð','Dashboard link copied â send to client');
+}
+
+// ââ Orders ââââââââââââââââââââââââââââââââââââ
+async function loadOrders() {
+  const orders = await fetch('/api/admin/orders').then(r=>r.json());
+  document.getElementById('orders-body').innerHTML = orders.map(o=>`
+    <div style="display:grid;grid-template-columns:80px 150px 1fr 95px 100px 85px;gap:10px;align-items:center;padding:11px 18px;border-bottom:1px solid rgba(201,168,76,.04);font-size:12px;">
+      <div style="font-family:'Cormorant Garamond',serif;color:var(--gold-d);">${o.id}</div>
+      <div style="color:var(--muted);font-size:11px;">${o.businessName}</div>
+      <div style="color:var(--text);">${o.customer} Â· ${o.channel}</div>
+      <div style="color:var(--text);">â¦${o.total?.toLocaleString()}</div>
+      <div><span class="badge ${o.status}">${o.status}</span></div>
+      <div style="color:${o.paymentStatus==='verified'?'var(--green)':'var(--dim)'};">${o.paymentStatus==='verified'?'â Paid':'Pending'}</div>
+    </div>`).join('') || '<div style="padding:24px;text-align:center;color:var(--dim);">No orders yet.</div>';
+}
+
+// ââ Forwarding card âââââââââââââââââââââââââââ
+function updateForwardingCard() {
+  const pub    = document.getElementById('f-public-phone').value.trim();
+  const twilio = document.getElementById('f-phone').value.trim();
+  const card   = document.getElementById('fwd-card');
+  const code   = document.getElementById('fwd-code');
+  if (pub && twilio) {
+    // Format Twilio number for dialing code
+    const dialNum = twilio.startsWith('+') ? twilio : '+' + twilio;
+    code.textContent = `*21*${dialNum}#`;
+    card.style.display = 'block';
+  } else {
+    card.style.display = 'none';
+  }
+}
+
+function copyFwdCode() {
+  const pub    = document.getElementById('f-public-phone').value.trim();
+  const twilio = document.getElementById('f-phone').value.trim();
+  const dialNum = twilio.startsWith('+') ? twilio : '+' + twilio;
+  const text = `Hi! To activate your AI agent, dial this on your phone:\n\n*21*${dialNum}#\n\nThis forwards calls from your number (${pub}) to Antares.\nTo pause: ##21#`;
+  navigator.clipboard.writeText(text);
+  toast('ð', 'Forwarding instructions copied â send to client!');
+}
+
+
+function view(v) {
+  ['overview','clients','pending','orders','add'].forEach(n=>document.getElementById(`v-${n}`).style.display=n===v?'':'none');
+  if (v==='overview') { loadStats(); renderOverviewList(); }
+  if (v==='clients')  { loadClients(); }
+  if (v==='pending')  { loadClients(); }
+  if (v==='orders')   loadOrders();
+  if (v==='add')      { resetForm(); addRow(); }
+}
+
+function toast(ico,msg) {
+  document.getElementById('t-i').textContent=ico;
+  document.getElementById('t-m').textContent=msg;
+  const t=document.getElementById('toast');
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),4000);
+}
+// ââ Edit Client âââââââââââââââââââââââââââââââ
+let editClientId = null;
+let editRowN = 0;
+
+function openEdit(id) {
+  const c = clients.find(x=>x.id===id);
+  if (!c) return;
+  editClientId = id;
+  document.getElementById('e-name').value     = c.businessName || '';
+  document.getElementById('e-owner').value    = c.ownerName || '';
+  document.getElementById('e-pubphone').value = c.publicPhone || '';
+  document.getElementById('e-wa').value       = c.whatsappNumber || '';
+  document.getElementById('e-phone').value    = c.phone || '';
+  document.getElementById('e-sid').value      = c.twilioSid || '';
+  document.getElementById('e-tok').value      = c.twilioToken || '';
+  document.getElementById('e-bank').value     = c.bankName || '';
+  document.getElementById('e-acct').value     = c.bankAccount || '';
+  document.getElementById('e-acctname').value = c.bankAccountName || '';
+  document.getElementById('e-persona').value  = c.personality || '';
+  document.getElementById('e-extra').value    = c.extraInfo || '';
+  // Load menu rows
+  const mr = document.getElementById('e-mrows');
+  mr.innerHTML = '';
+  editRowN = 0;
+  (c.menuOrServices || []).forEach(item => addEditRow(item.name, item.category, item.price, item.description));
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function closeEdit() { document.getElementById('edit-modal').classList.add('hidden'); editClientId = null; }
+
+function addEditRow(name='', cat='General', price='', desc='') {
+  const d = document.createElement('div');
+  d.className = 'mrow'; d.id = `erow-${editRowN}`;
+  d.innerHTML = `<input class="rn" placeholder="Item name" value="${name}"/>
+    <input class="rc" placeholder="Category" value="${cat}"/>
+    <input class="rp" type="number" placeholder="0" value="${price}"/>
+    <input class="rd" placeholder="Description" value="${desc}"/>
+    <button class="del" onclick="this.parentElement.remove()">â</button>`;
+  document.getElementById('e-mrows').appendChild(d);
+  editRowN++;
+}
+
+function getEditMenu() {
+  return Array.from(document.getElementById('e-mrows').querySelectorAll('.mrow')).map(r=>({
+    name:r.querySelector('.rn').value.trim(),
+    category:r.querySelector('.rc').value.trim()||'General',
+    price:parseFloat(r.querySelector('.rp').value)||0,
+    description:r.querySelector('.rd').value.trim(),
+  })).filter(i=>i.name);
+}
+
+async function saveEdit() {
+  if (!editClientId) return;
+  const payload = {
+    businessName:    document.getElementById('e-name').value.trim(),
+    ownerName:       document.getElementById('e-owner').value.trim(),
+    publicPhone:     document.getElementById('e-pubphone').value.trim(),
+    whatsappNumber:  document.getElementById('e-wa').value.trim(),
+    phone:           document.getElementById('e-phone').value.trim(),
+    twilioSid:       document.getElementById('e-sid').value.trim(),
+    twilioToken:     document.getElementById('e-tok').value.trim(),
+    bankName:        document.getElementById('e-bank').value.trim(),
+    bankAccount:     document.getElementById('e-acct').value.trim(),
+    bankAccountName: document.getElementById('e-acctname').value.trim(),
+    personality:     document.getElementById('e-persona').value.trim(),
+    extraInfo:       document.getElementById('e-extra').value.trim(),
+    menuOrServices:  getEditMenu(),
+  };
+  const res  = await fetch(`/api/admin/clients/${editClientId}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data = await res.json();
+  if (data.success) {
+    toast('â', `${payload.businessName} updated successfully`);
+    closeEdit();
+    await loadClients();
+  } else { toast('â ', data.error || 'Update failed'); }
+}
+
+// ââ Client Detail View ââââââââââââââââââââââââ
+function openDetail(id) {
+  const c = clients.find(x=>x.id===id);
+  if (!c) return;
+  document.getElementById('dm-title').textContent = c.businessName;
+  const primary = c.colors?.primary || '#C9A84C';
+
+  const menuHTML = (c.menuOrServices||[]).length > 0
+    ? `<table class="menu-table">
+        <tr><th>Item</th><th>Category</th><th>Price</th><th>Description</th></tr>
+        ${(c.menuOrServices||[]).map(i=>`<tr><td>${i.name}</td><td style="color:var(--dim)">${i.category}</td><td style="color:var(--gold)">â¦${Number(i.price||0).toLocaleString()}</td><td style="color:var(--muted)">${i.description||'â'}</td></tr>`).join('')}
+      </table>`
+    : '<div style="color:var(--dim);font-size:12px;">No menu items added yet.</div>';
+
+  document.getElementById('dm-body').innerHTML = `
+    <div class="modal-section">
+      <h4>Business Info</h4>
+      <div class="detail-row"><span class="detail-key">Business Name</span><span class="detail-val">${c.businessName}</span></div>
+      <div class="detail-row"><span class="detail-key">Type</span><span class="detail-val">${c.businessType||'â'}</span></div>
+      <div class="detail-row"><span class="detail-key">Owner</span><span class="detail-val">${c.ownerName||'â'}</span></div>
+      <div class="detail-row"><span class="detail-key">Email</span><span class="detail-val">${c.email||'â'}</span></div>
+      <div class="detail-row"><span class="detail-key">Status</span><span class="detail-val"><span class="badge ${c.status}">${c.status}</span></span></div>
+      <div class="detail-row"><span class="detail-key">Created</span><span class="detail-val">${new Date(c.createdAt).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</span></div>
+    </div>
+    <div class="modal-section">
+      <h4>Contact & Channels</h4>
+      <div class="detail-row"><span class="detail-key">Public Phone</span><span class="detail-val">${c.publicPhone||'â'}</span></div>
+      <div class="detail-row"><span class="detail-key">Twilio Number</span><span class="detail-val">${c.phone||'â'}</span></div>
+      <div class="detail-row"><span class="detail-key">WhatsApp</span><span class="detail-val">${c.whatsappNumber||'â'}</span></div>
+      <div class="detail-row"><span class="detail-key">Webhooks</span><span class="detail-val">${c.webhooksOk?'<span style="color:var(--green)">â Configured</span>':'<span style="color:var(--amber)">â  Not configured</span>'}</span></div>
+    </div>
+    <div class="modal-section">
+      <h4>Payment Details</h4>
+      <div class="detail-row"><span class="detail-key">Bank</span><span class="detail-val">${c.bankName||'â'}</span></div>
+      <div class="detail-row"><span class="detail-key">Account Number</span><span class="detail-val">${c.bankAccount||'â'}</span></div>
+      <div class="detail-row"><span class="detail-key">Account Name</span><span class="detail-val">${c.bankAccountName||'â'}</span></div>
+    </div>
+    <div class="modal-section">
+      <h4>Menu / Services (${(c.menuOrServices||[]).length} items)</h4>
+      ${menuHTML}
+    </div>
+    <div class="modal-section">
+      <h4>AI Personality</h4>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6;background:var(--s2);border-radius:8px;padding:12px;border:1px solid var(--border);">${(c.personality||'Not set').replace(/
+/g,'<br/>')}</div>
+    </div>
+    <div style="display:flex;gap:10px;padding-top:12px;">
+      <button class="btn btn-edit" onclick="closeDetail();openEdit('${c.id}');" style="flex:1;padding:11px;justify-content:center;">â Edit This Client</button>
+      <button class="btn btn-outline" onclick="closeDetail()">Close</button>
+    </div>
+  `;
+  document.getElementById('detail-modal').classList.remove('hidden');
+}
+
+function closeDetail() { document.getElementById('detail-modal').classList.add('hidden'); }
+
+</script>
+</body>
+</html>
